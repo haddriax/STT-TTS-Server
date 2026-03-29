@@ -1,0 +1,110 @@
+{
+  "_comment": "Viseme ID → ARKit blendshape weights. Tune these values visually in UE.",
+
+  "V_SIL": {},
+
+  "V_BP": {
+    "mouthClose": 0.9,
+    "mouthPressLeft": 0.4,
+    "mouthPressRight": 0.4
+  },
+  "V_FV": {
+    "mouthLowerDownLeft": 0.5,
+    "mouthLowerDownRight": 0.5,
+    "mouthUpperUpLeft": 0.3,
+    "mouthUpperUpRight": 0.3
+  },
+  "V_TH": {
+    "jawOpen": 0.1,
+    "mouthStretchLeft": 0.2,
+    "mouthStretchRight": 0.2
+  },
+  "V_SZ": {
+    "jawOpen": 0.15,
+    "mouthClose": 0.2
+  },
+  "V_SH": {
+    "mouthFunnel": 0.3,
+    "jawOpen": 0.15
+  },
+  "V_NL": {
+    "jawOpen": 0.2
+  },
+  "V_R": {
+    "mouthFunnel": 0.2,
+    "jawOpen": 0.2
+  },
+  "V_W": {
+    "mouthPucker": 0.6,
+    "jawOpen": 0.1
+  },
+  "V_H": {
+    "jawOpen": 0.3
+  },
+  "V_TD": {
+    "jawOpen": 0.15,
+    "mouthStretchLeft": 0.1,
+    "mouthStretchRight": 0.1
+  },
+  "V_KG": {
+    "jawOpen": 0.2
+  },
+  "V_Y": {
+    "jawOpen": 0.2,
+    "mouthSmileLeft": 0.3,
+    "mouthSmileRight": 0.3
+  },
+
+  "V_AA": {
+    "jawOpen": 0.7,
+    "mouthStretchLeft": 0.3,
+    "mouthStretchRight": 0.3
+  },
+  "V_EY": {
+    "jawOpen": 0.45,
+    "mouthSmileLeft": 0.2,
+    "mouthSmileRight": 0.2
+  },
+  "V_AY": {
+    "jawOpen": 0.45,
+    "mouthSmileLeft": 0.2,
+    "mouthSmileRight": 0.2
+  },
+  "V_AW": {
+    "jawOpen": 0.45,
+    "mouthFunnel": 0.15
+  },
+  "V_EH": {
+    "jawOpen": 0.4,
+    "mouthSmileLeft": 0.25,
+    "mouthSmileRight": 0.25
+  },
+  "V_IH": {
+    "jawOpen": 0.25,
+    "mouthSmileLeft": 0.5,
+    "mouthSmileRight": 0.5
+  },
+  "V_OW": {
+    "jawOpen": 0.4,
+    "mouthFunnel": 0.3
+  },
+  "V_OY": {
+    "jawOpen": 0.4,
+    "mouthFunnel": 0.3
+  },
+  "V_AO": {
+    "jawOpen": 0.5,
+    "mouthFunnel": 0.25
+  },
+  "V_UW": {
+    "mouthPucker": 0.7,
+    "jawOpen": 0.15
+  },
+  "V_ER": {
+    "jawOpen": 0.3,
+    "mouthFunnel": 0.15
+  },
+  "V_AH": {
+    "jawOpen": 0.35
+  }
+}

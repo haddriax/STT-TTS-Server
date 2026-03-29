@@ -1,0 +1,45 @@
+# whispeer-server configuration
+# All values can be overridden by environment variables:
+#   WHISPER_HOST, WHISPER_PORT, WHISPER_LOG_LEVEL
+#   WHISPER_MODEL, WHISPER_DEVICE, WHISPER_COMPUTE
+#   WHISPER_CONFIG=/path/to/alternate/config.yaml
+
+server:
+  host: "127.0.0.1"      # bind address — use "0.0.0.0" to expose on all interfaces
+  port: 8000             # TCP port
+  log_level: "info"      # debug | info | warning | error | critical
+
+model:
+  name: "turbo"          # tiny | base | small | medium | large-v3 | turbo
+                         # larger = more accurate, slower to load and run
+  device: "cuda"          # cpu | cuda | auto
+  compute_type: "float16"   # int8 (fastest, CPU-friendly) | int8_float16 | float16 | default
+                         # float16 requires CUDA; int8 is best for CPU-only
+
+transcribe:
+  beam_size: 5           # 1–10; higher = more accurate, slower
+  temperature: 0.0       # 0.0 = greedy decoding; increase (e.g. 0.2) if output is repetitive
+  vad_filter: true       # strip silent segments before transcription (recommended)
+  language: null         # null = auto-detect; or set a BCP-47 code e.g. "en", "fr", "ja"
+  condition_on_previous_text: true  # use prior context to improve coherence
+
+translate:
+  beam_size: 5           # same as transcribe.beam_size
+  temperature: 0.0       # same as transcribe.temperature
+  vad_filter: true       # same as transcribe.vad_filter
+  condition_on_previous_text: true  # same as transcribe.condition_on_previous_text
+  # Note: translation always outputs English regardless of source language
+
+# ---------------------------------------------------------------------------
+# Kokoro TTS — runs in-process as a Python library
+# ---------------------------------------------------------------------------
+kokoro:
+  lang_code: "b"               # language code passed to KPipeline
+                                # "a" = American English | "b" = British English
+  default_voice: "bm_george"     # voice used when the request omits "voice"
+                                # other options: af_bella, af_sky, af_sarah, bf_emma, ...
+  default_speed: 1.0           # 0.5–2.0; speech rate multiplier
+  output_mode: "arkit"         # arkit  → ARKit 52 blend shape frames (for 3D avatars)
+                                # words  → raw word-level timestamps + audio
+  fps: 60                      # frames per second for arkit mode (24, 30, or 60 typical)
+  output_sample_rate: 48000    # WAV output sample rate in Hz (Kokoro native is 24000)

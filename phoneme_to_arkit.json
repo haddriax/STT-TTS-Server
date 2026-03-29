@@ -1,0 +1,125 @@
+{
+  "bilabial_stops_nasals": {
+    "phonemes": ["p", "b", "m"],
+    "blendshapes": {
+      "mouthClose": 0.9,
+      "mouthPressLeft": 0.4,
+      "mouthPressRight": 0.4
+    }
+  },
+  "labiodental": {
+    "phonemes": ["f", "v"],
+    "blendshapes": {
+      "mouthLowerDownLeft": 0.5,
+      "mouthLowerDownRight": 0.5,
+      "mouthUpperUpLeft": 0.3,
+      "mouthUpperUpRight": 0.3
+    }
+  },
+  "dental": {
+    "phonemes": ["\u03b8", "\u00f0"],
+    "blendshapes": {
+      "jawOpen": 0.1,
+      "mouthStretchLeft": 0.2,
+      "mouthStretchRight": 0.2
+    }
+  },
+  "sibilants": {
+    "phonemes": ["s", "z"],
+    "blendshapes": {
+      "jawOpen": 0.15,
+      "mouthClose": 0.2
+    }
+  },
+  "palato_alveolar": {
+    "phonemes": ["\u0283", "\u0292", "t\u0283", "d\u0292"],
+    "blendshapes": {
+      "mouthFunnel": 0.3,
+      "jawOpen": 0.15
+    }
+  },
+  "alveolar_nasal_lateral": {
+    "phonemes": ["n", "\u014b", "l"],
+    "blendshapes": {
+      "jawOpen": 0.2
+    }
+  },
+  "rhotic": {
+    "phonemes": ["\u0279", "r"],
+    "blendshapes": {
+      "mouthFunnel": 0.2,
+      "jawOpen": 0.2
+    }
+  },
+  "labio_velar": {
+    "phonemes": ["w"],
+    "blendshapes": {
+      "mouthPucker": 0.6,
+      "jawOpen": 0.1
+    }
+  },
+  "glottal": {
+    "phonemes": ["h"],
+    "blendshapes": {
+      "jawOpen": 0.3
+    }
+  },
+  "open_back_vowels": {
+    "phonemes": ["\u0251", "a", "\u00e6"],
+    "blendshapes": {
+      "jawOpen": 0.7,
+      "mouthStretchLeft": 0.3,
+      "mouthStretchRight": 0.3
+    }
+  },
+  "diphthongs": {
+    "phonemes": ["e\u026a", "a\u026a", "a\u028a"],
+    "blendshapes": {
+      "jawOpen": 0.45,
+      "mouthSmileLeft": 0.2,
+      "mouthSmileRight": 0.2
+    }
+  },
+  "mid_front_vowels": {
+    "phonemes": ["\u025b", "e"],
+    "blendshapes": {
+      "jawOpen": 0.4,
+      "mouthSmileLeft": 0.25,
+      "mouthSmileRight": 0.25
+    }
+  },
+  "high_front_vowels": {
+    "phonemes": ["\u026a", "i\u02d0", "i"],
+    "blendshapes": {
+      "jawOpen": 0.25,
+      "mouthSmileLeft": 0.5,
+      "mouthSmileRight": 0.5
+    }
+  },
+  "mid_back_rounded": {
+    "phonemes": ["o\u028a", "\u0254\u026a", "\u0254"],
+    "blendshapes": {
+      "jawOpen": 0.4,
+      "mouthFunnel": 0.3
+    }
+  },
+  "high_back_rounded": {
+    "phonemes": ["u\u02d0", "\u028a", "u"],
+    "blendshapes": {
+      "mouthPucker": 0.7,
+      "jawOpen": 0.15
+    }
+  },
+  "mid_central_vowels": {
+    "phonemes": ["\u025c\u02d0", "\u025a", "\u028c", "\u0259"],
+    "blendshapes": {
+      "jawOpen": 0.35
+    }
+  },
+  "near_open": {
+    "phonemes": ["\u0250"],
+    "blendshapes": {
+      "jawOpen": 0.4
+    }
+  }
+}

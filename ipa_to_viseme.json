@@ -1,0 +1,25 @@
+{
+  "_comment": "IPA symbol → viseme ID. Extended 22-viseme set based on Preston Blair + extras.",
+
+  "p": "V_BP", "b": "V_BP", "m": "V_BP",
+  "f": "V_FV", "v": "V_FV",
+  "\u03b8": "V_TH", "\u00f0": "V_TH",
+  "s": "V_SZ", "z": "V_SZ",
+  "\u0283": "V_SH", "\u0292": "V_SH", "t\u0283": "V_SH", "d\u0292": "V_SH",
+  "n": "V_NL", "\u014b": "V_NL", "l": "V_NL",
+  "\u0279": "V_R", "r": "V_R",
+  "w": "V_W",
+  "h": "V_H",
+  "t": "V_TD", "d": "V_TD",
+  "k": "V_KG", "g": "V_KG",
+  "j": "V_Y",
+
+  "\u0251": "V_AA", "a": "V_AA", "\u00e6": "V_AA",
+  "e\u026a": "V_EY", "a\u026a": "V_AY", "a\u028a": "V_AW",
+  "\u025b": "V_EH", "e": "V_EH",
+  "\u026a": "V_IH", "i\u02d0": "V_IH", "i": "V_IH",
+  "o\u028a": "V_OW", "\u0254\u026a": "V_OY", "\u0254": "V_AO",
+  "u\u02d0": "V_UW", "\u028a": "V_UW", "u": "V_UW",
+  "\u025c\u02d0": "V_ER", "\u025a": "V_ER", "\u028c": "V_AH", "\u0259": "V_AH",
+  "\u0250": "V_AH"
+}
