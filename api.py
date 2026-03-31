@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import gc
 import logging
 import os
+
+import torch
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional, Union
@@ -11,9 +14,11 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.exceptions import HTTPException as StarletteHTTPException, RequestValidationError
 from fastapi.responses import JSONResponse, PlainTextResponse
 
+from audio2face_client import Audio2FaceClient, Audio2FaceError
 from config import DEFAULT_CONFIG_PATH, AppConfig, load_config
 from healthcheck import run_checks
-from kokoro_tts import KokoroTTS, LipSyncRequest
+from kokoro_tts import KokoroTTS, LipSyncRequest, TtsResponse
+from occ_emotion import OccClassifyRequest, OccClassifyResponse, OccEmotionClient
 from whisper_stt import SUPPORTED_FORMATS, WhisperSTT, build_response
 
 logging.basicConfig(
@@ -35,29 +40,64 @@ cfg = load_config(config_path)
 async def lifespan(app: FastAPI):
     mc = cfg.model
     sc = cfg.server
+    kc = cfg.kokoro
+
+    active_routes = []
+    if kc.activate_base_arkit:
+        active_routes.append("/tts/arkit")
+    if kc.activate_words:
+        active_routes.append("/tts/words")
+    if kc.activate_audio2face:
+        active_routes.append("/tts/audio2face")
 
     logger.info("=" * 60)
     logger.info("whispeer-server starting up")
     logger.info("  Config file : %s", config_path if config_path.exists() else f"{config_path} (not found, using defaults)")
     logger.info("  Listen      : http://%s:%d", sc.host, sc.port)
     logger.info("  Model       : %s  [%s / %s]", mc.name, mc.device, mc.compute_type)
-    logger.info("  Kokoro      : voice=%s  mode=%s  fps=%s", cfg.kokoro.default_voice, cfg.kokoro.output_mode, cfg.kokoro.fps)
+    logger.info("  Kokoro      : voice=%s  routes=%s", kc.default_voice, ", ".join(active_routes) or "(none)")
     logger.info("=" * 60)
+
+    torch.set_num_threads(1)
+    torch.set_num_interop_threads(1)
 
     app.state.stt = WhisperSTT(cfg.model)
     app.state.tts = KokoroTTS(cfg.kokoro)
+
+    if kc.activate_audio2face:
+        app.state.a2f = Audio2FaceClient(cfg.audio2face)
+    else:
+        app.state.a2f = None
+
+    if cfg.occ.enabled:
+        app.state.occ = OccEmotionClient(cfg.occ)
+        logger.info("  OCC emotion: enabled (mode=%s)", cfg.occ.mode)
+    else:
+        app.state.occ = None
+
     app.state.cfg = cfg
 
-    await run_checks(app)
+    await run_checks(app, cfg)
 
     logger.info(
-        "Endpoints: POST /stt/transcribe  POST /stt/translate  POST /tts/lipsync  GET /health"
+        "Endpoints: POST /stt/transcribe  POST /stt/translate%s  GET /health",
+        "".join(f"  POST {r}" for r in active_routes),
     )
     print(f"\n  API docs -> http://{sc.host}:{sc.port}/docs\n")
 
+    gc.collect()
+    torch.cuda.empty_cache()
+
     yield
 
-    logger.info("Shutting down.")
+    logger.info("Shutting down — releasing models...")
+    app.state.stt = None
+    app.state.tts = None
+    app.state.a2f = None
+    app.state.occ = None
+    gc.collect()
+    torch.cuda.empty_cache()
+    logger.info("Shutdown complete.")
 
 
 app = FastAPI(title="whispeer-server", version="0.1.0", lifespan=lifespan)
@@ -72,8 +112,15 @@ _ROUTES = [
     ("GET",  "/models",         "List loaded Whisper model"),
     ("POST", "/stt/transcribe", "Transcribe audio to text"),
     ("POST", "/stt/translate",  "Transcribe audio and translate to English"),
-    ("POST", "/tts/lipsync",    "Generate speech + lip-sync animation from text"),
 ]
+if cfg.kokoro.activate_base_arkit:
+    _ROUTES.append(("POST", "/tts/arkit",      "Generate speech + ARKit blendshapes (viseme pipeline)"))
+if cfg.kokoro.activate_words:
+    _ROUTES.append(("POST", "/tts/words",      "Generate speech + word-level timestamps"))
+if cfg.kokoro.activate_audio2face:
+    _ROUTES.append(("POST", "/tts/audio2face", "Generate speech + ARKit blendshapes (Audio2Face-3D)"))
+if cfg.occ.enabled:
+    _ROUTES.append(("POST", "/emotion/classify", "Classify text into an OCC emotion label"))
 
 @app.exception_handler(StarletteHTTPException)
 @app.exception_handler(HTTPException)
@@ -130,7 +177,11 @@ async def transcriptions(
             status_code=422,
             detail={"error": {"message": f"Audio processing failed: {exc}", "type": "invalid_request_error"}},
         ) from exc
-    return build_response(response_format, "transcribe", segments_list, info)
+    emotion = None
+    if app.state.occ and response_format in ("json", "verbose_json"):
+        full_text = "".join(seg.text for seg in segments_list)
+        emotion = await app.state.occ.classify(full_text)
+    return build_response(response_format, "transcribe", segments_list, info, emotion=emotion)
 
 
 @app.post("/stt/translate", response_model=None)
@@ -155,13 +206,41 @@ async def translations(
             status_code=422,
             detail={"error": {"message": f"Audio processing failed: {exc}", "type": "invalid_request_error"}},
         ) from exc
-    return build_response(response_format, "translate", segments_list, info)
+    emotion = None
+    if app.state.occ and response_format in ("json", "verbose_json"):
+        full_text = "".join(seg.text for seg in segments_list)
+        emotion = await app.state.occ.classify(full_text)
+    return build_response(response_format, "translate", segments_list, info, emotion=emotion)
 
 
-@app.post("/tts/lipsync", response_model=None)
-async def lipsync(req: LipSyncRequest) -> JSONResponse:
-    result = await app.state.tts.lipsync(req)
-    return JSONResponse(result.model_dump())
+if cfg.kokoro.activate_base_arkit:
+    @app.post("/tts/arkit", response_model=TtsResponse)
+    async def tts_arkit(req: LipSyncRequest, request: Request) -> JSONResponse:
+        result = await request.app.state.tts.lipsync_arkit(req)
+        return JSONResponse(result.model_dump(exclude_none=True))
+
+if cfg.kokoro.activate_words:
+    @app.post("/tts/words", response_model=TtsResponse, deprecated=True)
+    async def tts_words(req: LipSyncRequest, request: Request) -> JSONResponse:
+        result = await request.app.state.tts.lipsync_words(req)
+        return JSONResponse(result.model_dump(exclude_none=True))
+
+if cfg.kokoro.activate_audio2face:
+    @app.post("/tts/audio2face", response_model=TtsResponse)
+    async def tts_audio2face(req: LipSyncRequest, request: Request) -> JSONResponse:
+        try:
+            result = await request.app.state.tts.lipsync_audio2face(
+                req, request.app.state.a2f
+            )
+        except Audio2FaceError as exc:
+            raise HTTPException(status_code=502, detail=str(exc))
+        return JSONResponse(result.model_dump(exclude_none=True))
+
+if cfg.occ.enabled:
+    @app.post("/emotion/classify", response_model=OccClassifyResponse)
+    async def emotion_classify(req: OccClassifyRequest, request: Request) -> JSONResponse:
+        result = await request.app.state.occ.classify_full(req.text)
+        return JSONResponse(result.model_dump())
 
 
 # ---------------------------------------------------------------------------

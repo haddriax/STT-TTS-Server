@@ -9,7 +9,7 @@ import math
 import wave
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import numpy as np
 from pydantic import BaseModel
@@ -36,22 +36,17 @@ class WordTimestamp(BaseModel):
     end_time: float
 
 
-class WordsLipSyncResponse(BaseModel):
-    audio: str          # base64-encoded wav
-    format: str
-    timestamps: list[WordTimestamp]
-
-
 class BlendShapeFrame(BaseModel):
     time: float                    # seconds from audio start
     blendshapes: dict[str, float]  # ARKit name → weight 0.0–1.0
 
 
-class ARKitLipSyncResponse(BaseModel):
-    audio: str          # base64-encoded wav
+class TtsResponse(BaseModel):
+    audio: str                                      # base64-encoded wav
     format: str
     duration: float
-    frames: list[BlendShapeFrame]
+    frames: Optional[list[BlendShapeFrame]] = None  # arkit / audio2face modes
+    timestamps: Optional[list[WordTimestamp]] = None  # words mode (deprecated)
 
 
 # ---------------------------------------------------------------------------
@@ -63,6 +58,39 @@ _REST: dict[str, float] = {}
 # Populated by _load_phoneme_mapping() or _load_viseme_pipeline() during KokoroTTS init
 _IPA_LOOKUP: dict[str, dict[str, float]] = {}
 _IPA_SORTED: list[str] = []
+
+# ---------------------------------------------------------------------------
+# ARKit level constants
+# ---------------------------------------------------------------------------
+
+_LEVEL1_SHAPES: frozenset[str] = frozenset({
+    "jawOpen",
+    "mouthClose", "mouthFunnel", "mouthPucker",
+    "mouthSmileLeft", "mouthSmileRight",
+    "mouthFrownLeft", "mouthFrownRight",
+    "mouthStretchLeft", "mouthStretchRight",
+})
+
+
+def _apply_level3_extras(bs: dict[str, float]) -> dict[str, float]:
+    """Derive additional ARKit shapes from existing blendshape values."""
+    jaw     = bs.get("jawOpen", 0.0)
+    smile   = (bs.get("mouthSmileLeft", 0.0) + bs.get("mouthSmileRight", 0.0)) * 0.5
+    stretch = (bs.get("mouthStretchLeft", 0.0) + bs.get("mouthStretchRight", 0.0)) * 0.5
+    speaking = jaw > 0.05
+
+    result = dict(bs)
+    result["browInnerUp"]   = round(jaw * 0.35, 4)
+    result["browDown_L"]    = round(max(0.0, 0.12 - jaw * 0.18), 4)
+    result["browDown_R"]    = result["browDown_L"]
+    result["cheekSquint_L"] = round(smile * 0.55, 4)
+    result["cheekSquint_R"] = result["cheekSquint_L"]
+    result["eyeSquint_L"]   = round(stretch * 0.30, 4)
+    result["eyeSquint_R"]   = result["eyeSquint_L"]
+    if speaking:
+        result.setdefault("jawRight",   0.02)
+        result.setdefault("mouthRight", 0.02)
+    return result
 
 
 def _resolve_path(path: str) -> Path:
@@ -177,6 +205,7 @@ def _generate_arkit_frames(
     phonemes: list[str],
     word_timestamps: list[dict],
     fps: int,
+    level: int = 2,
 ) -> list[BlendShapeFrame]:
     if not word_timestamps:
         return []
@@ -234,7 +263,12 @@ def _generate_arkit_frames(
     tick = 1.0 / fps
     t = 0.0
     while t <= total_duration + tick:
-        frames.append(BlendShapeFrame(time=round(t, 6), blendshapes=_weights_at(t)))
+        blendshapes = _weights_at(t)
+        if level == 1:
+            blendshapes = {k: v for k, v in blendshapes.items() if k in _LEVEL1_SHAPES}
+        elif level == 3:
+            blendshapes = _apply_level3_extras(blendshapes)
+        frames.append(BlendShapeFrame(time=round(t, 6), blendshapes=blendshapes))
         t += tick
     return frames
 
@@ -444,19 +478,24 @@ class KokoroTTS:
             token_timestamps=token_timestamps if has_timestamps and token_timestamps else None,
         )
 
-    async def lipsync(self, req: LipSyncRequest) -> Union[WordsLipSyncResponse, ARKitLipSyncResponse]:
+    @dataclass
+    class _Prepared:
+        audio_b64: str
+        duration: float
+        raw_audio: np.ndarray
+        phonemes: list[str]
+        word_timestamps: list[dict]
+
+    async def _prepare(self, req: LipSyncRequest) -> "_Prepared":
+        """Shared synthesis + timestamp logic used by all lipsync_* methods."""
         voice = req.voice or self.cfg.default_voice
         speed = req.speed or self.cfg.default_speed
 
-        synth = await asyncio.to_thread(
-            self._synthesize, req.text, voice, speed
-        )
-
+        synth = await asyncio.to_thread(self._synthesize, req.text, voice, speed)
         synth.audio = _trim_trailing_silence(synth.audio, _SAMPLE_RATE)
         duration = len(synth.audio) / _SAMPLE_RATE
         audio_b64 = _encode_wav_base64(synth.audio, self.cfg.output_sample_rate)
 
-        # Use model timestamps when available, fall back to estimation
         if synth.token_timestamps:
             word_timestamps = _rescale_model_timestamps(synth.token_timestamps, duration)
             phonemes = _tokenize_ipa(" ".join(synth.phoneme_parts))
@@ -467,20 +506,56 @@ class KokoroTTS:
             word_timestamps = _estimate_word_timestamps(words, duration, phonemes)
             logger.info("lipsync: using estimated timestamps (no model data)")
 
-        if self.cfg.output_mode == "words":
-            return WordsLipSyncResponse(
-                audio=audio_b64,
-                format="wav",
-                timestamps=[WordTimestamp(**{k: v for k, v in t.items() if k in ("word", "start_time", "end_time")}) for t in word_timestamps],
-            )
-        frames = _generate_arkit_frames(phonemes, word_timestamps, self.cfg.fps)
-        logger.info(
-            "lipsync: %d words, %d phonemes, %d frames @ %d fps",
-            len(word_timestamps), len(phonemes), len(frames), self.cfg.fps,
-        )
-        return ARKitLipSyncResponse(
-            audio=audio_b64,
-            format="wav",
+        return KokoroTTS._Prepared(
+            audio_b64=audio_b64,
             duration=duration,
-            frames=frames,
+            raw_audio=synth.audio,
+            phonemes=phonemes,
+            word_timestamps=word_timestamps,
         )
+
+    async def lipsync_arkit(self, req: LipSyncRequest) -> TtsResponse:
+        p = await self._prepare(req)
+        frames = _generate_arkit_frames(p.phonemes, p.word_timestamps, self.cfg.fps, self.cfg.arkit_level)
+        logger.info(
+            "lipsync_arkit: %d words, %d phonemes, %d frames @ %d fps",
+            len(p.word_timestamps), len(p.phonemes), len(frames), self.cfg.fps,
+        )
+        result = TtsResponse(audio=p.audio_b64, format="wav", duration=p.duration, frames=frames)
+        if self.cfg.debug_dump_arkit:
+            self._dump_arkit(req.text, result)
+        return result
+
+    def _dump_arkit(self, text: str, result: TtsResponse) -> None:
+        import datetime, re
+        tmp = Path(__file__).parent / "tmp"
+        tmp.mkdir(exist_ok=True)
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        slug = re.sub(r"[^\w]+", "_", text[:40]).strip("_")
+        path = tmp / f"{ts}_{slug}.json"
+        payload = result.model_dump(exclude_none=True)
+        payload.pop("audio", None)  # omit base64 blob — not useful for visualisation
+        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        logger.debug("debug_dump_arkit: wrote %s", path)
+
+    async def lipsync_words(self, req: LipSyncRequest) -> TtsResponse:
+        p = await self._prepare(req)
+        return TtsResponse(
+            audio=p.audio_b64,
+            format="wav",
+            duration=p.duration,
+            timestamps=[
+                WordTimestamp(**{k: v for k, v in t.items() if k in ("word", "start_time", "end_time")})
+                for t in p.word_timestamps
+            ],
+        )
+
+    async def lipsync_audio2face(
+        self,
+        req: LipSyncRequest,
+        a2f_client,  # Audio2FaceClient
+    ) -> TtsResponse:
+        p = await self._prepare(req)
+        frames = await a2f_client.generate_blendshapes(p.raw_audio, _SAMPLE_RATE)
+        logger.info("lipsync_audio2face: %d A2F frames @ 30 fps", len(frames))
+        return TtsResponse(audio=p.audio_b64, format="wav", duration=p.duration, frames=frames)

@@ -6,6 +6,7 @@ Uses httpx.ASGITransport to call the app in-process — no network, no port need
 """
 from __future__ import annotations
 
+import asyncio
 import io
 import logging
 import wave
@@ -40,23 +41,29 @@ async def _check(client: httpx.AsyncClient, method: str, path: str, label: str, 
         return False
 
 
-async def run_checks(app) -> None:
-    """Run a smoke-test against every route and log the results."""
+async def run_checks(app, cfg) -> None:
+    """Run a smoke-test against every active route and log the results."""
     logger.info("Running startup health checks...")
     silent = _silent_wav()
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test", timeout=30.0) as client:
-        results = [
-            await _check(client, "GET",  "/health",        "health"),
-            await _check(client, "GET",  "/models",        "models"),
-            await _check(client, "POST", "/stt/transcribe", "stt/transcribe",
-                files={"file": ("check.wav", silent, "audio/wav")}),
-            await _check(client, "POST", "/stt/translate",  "stt/translate",
-                files={"file": ("check.wav", silent, "audio/wav")}),
-            await _check(client, "POST", "/tts/lipsync",    "tts/lipsync",
-                json={"text": "hello"}),
+        checks = [
+            _check(client, "GET",  "/health",         "health"),
+            _check(client, "GET",  "/models",         "models"),
+            _check(client, "POST", "/stt/transcribe", "stt/transcribe",
+                   files={"file": ("check.wav", silent, "audio/wav")}),
+            _check(client, "POST", "/stt/translate",  "stt/translate",
+                   files={"file": ("check.wav", silent, "audio/wav")}),
         ]
+        if cfg.kokoro.activate_base_arkit:
+            checks.append(_check(client, "POST", "/tts/arkit",      "tts/arkit",      json={"text": "hello"}))
+        if cfg.kokoro.activate_words:
+            checks.append(_check(client, "POST", "/tts/words",      "tts/words",      json={"text": "hello"}))
+        if cfg.kokoro.activate_audio2face:
+            checks.append(_check(client, "POST", "/tts/audio2face", "tts/audio2face", json={"text": "hello"}))
+
+        results = list(await asyncio.gather(*checks))
 
     passed, total = sum(results), len(results)
     if passed == total:

@@ -34,6 +34,7 @@ class WhisperSegment(BaseModel):
 
 class AudioJsonResponse(BaseModel):
     text: str
+    emotion: Optional[str] = None
 
 
 class AudioVerboseJsonResponse(BaseModel):
@@ -42,6 +43,7 @@ class AudioVerboseJsonResponse(BaseModel):
     duration: float
     text: str
     segments: list[WhisperSegment]
+    emotion: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -79,6 +81,7 @@ def build_response(
     task: str,
     segments_list: list,
     info: Any,
+    emotion: Optional[str] = None,
 ) -> Union[JSONResponse, PlainTextResponse]:
     full_text = "".join(seg.text for seg in segments_list)
 
@@ -108,9 +111,10 @@ def build_response(
                 )
                 for seg in segments_list
             ],
+            emotion=emotion,
         )
-        return JSONResponse(resp.model_dump())
-    return JSONResponse(AudioJsonResponse(text=full_text).model_dump())
+        return JSONResponse(resp.model_dump(exclude_none=True))
+    return JSONResponse(AudioJsonResponse(text=full_text, emotion=emotion).model_dump(exclude_none=True))
 
 
 # ---------------------------------------------------------------------------

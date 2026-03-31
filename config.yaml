@@ -34,12 +34,40 @@ translate:
 # Kokoro TTS — runs in-process as a Python library
 # ---------------------------------------------------------------------------
 kokoro:
-  lang_code: "b"               # language code passed to KPipeline
-                                # "a" = American English | "b" = British English
-  default_voice: "bm_george"     # voice used when the request omits "voice"
-                                # other options: af_bella, af_sky, af_sarah, bf_emma, ...
-  default_speed: 1.0           # 0.5–2.0; speech rate multiplier
-  output_mode: "arkit"         # arkit  → ARKit 52 blend shape frames (for 3D avatars)
-                                # words  → raw word-level timestamps + audio
-  fps: 60                      # frames per second for arkit mode (24, 30, or 60 typical)
-  output_sample_rate: 48000    # WAV output sample rate in Hz (Kokoro native is 24000)
+  lang_code: "f"                # language code passed to KPipeline
+                                # "a" = American English | "b" = British English | "f" = French
+  default_voice: "ff_siwis "  # voice used when the request omits "voice"
+                                # other options: af_bella, af_sky, af_sarah, bf_emma, bm_george, ...
+                                # fm_gabriel, ff_siwis
+  default_speed: 1.0            # 0.5–2.0; speech rate multiplier
+  activate_base_arkit: true     # enable POST /tts/arkit  → ARKit blendshapes via viseme pipeline
+  activate_words: false         # enable POST /tts/words  → word-level timestamps + audio
+  activate_audio2face: false    # enable POST /tts/audio2face → ARKit via Nvidia Audio2Face-3D gRPC
+  arkit_level: 3                # 1 = basic (~10 shapes)  2 = advanced/default (27)  3 = full suit (adds brow/squint)
+  debug_dump_arkit: true        # dump each /tts/arkit response as JSON to ./tmp/ (omits audio)
+  fps: 60                       # frames per second for arkit mode (24, 30, or 60 typical)
+                                # ignored in audio2face mode — A2F always outputs at 30 FPS
+  output_sample_rate: 48000     # WAV output sample rate in Hz (Kokoro native is 24000)
+
+# ---------------------------------------------------------------------------
+# Nvidia Audio2Face-3D — local gRPC microservice
+# Only used when kokoro.activate_audio2face is true.
+# Install: docker run --gpus all nvcr.io/nim/nvidia/audio2face-3d:2.0
+# Proto stubs: pip install <nvidia_ace wheel from NVIDIA/Audio2Face-3D-Samples>
+# ---------------------------------------------------------------------------
+audio2face:
+  host: "localhost"
+  port: 52000
+  timeout: 30.0                # seconds — must cover full streaming call duration
+
+# ---------------------------------------------------------------------------
+# OCC Emotion Classification — enriches /stt/transcribe and /stt/translate
+# responses with an "emotion" field (json / verbose_json formats only).
+# Requires Ollama running locally, or a fine-tuned LoRA adapter.
+# ---------------------------------------------------------------------------
+occ:
+  enabled: true
+  mode: lora                 # "ollama" | "lora"
+  ollama_url: http://localhost:11434
+  ollama_model: mistral
+  lora_model_path: ./mistral-occ-lora   # path to LoRA adapter dir (mode=lora only)

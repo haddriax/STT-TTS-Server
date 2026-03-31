@@ -32,9 +32,12 @@ from config import DEFAULT_CONFIG_PATH, load_config
 cfg = load_config(Path(os.getenv("WHISPER_CONFIG", DEFAULT_CONFIG_PATH)))
 
 if __name__ == "__main__":
-    uvicorn.run(
-        app,
-        host=cfg.server.host,
-        port=cfg.server.port,
-        log_level=cfg.server.log_level,
-    )
+    try:
+        uvicorn.run(
+            app,
+            host=cfg.server.host,
+            port=cfg.server.port,
+            log_level=cfg.server.log_level,
+        )
+    except KeyboardInterrupt:
+        pass

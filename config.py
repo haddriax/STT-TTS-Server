@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Optional
 
 import yaml
 from pydantic import BaseModel, Field
@@ -48,7 +48,9 @@ class KokoroConfig(BaseModel):
     lang_code: str = "a"
     default_voice: str = "am_adam"
     default_speed: float = 1.0
-    output_mode: Literal["arkit", "words"] = "arkit"
+    activate_base_arkit: bool = True
+    activate_words: bool = True
+    activate_audio2face: bool = False
     fps: int = 60
     output_sample_rate: int = 48000
     phoneme_mapping_path: str = "phoneme_to_arkit.json"
@@ -56,6 +58,22 @@ class KokoroConfig(BaseModel):
     viseme_to_arkit_path: str = "viseme_to_arkit.json"
     use_viseme_pipeline: bool = True
     phoneme_durations_path: str = "phoneme_durations.json"
+    arkit_level: int = Field(default=2, ge=1, le=3)  # 1=basic  2=advanced  3=full suit
+    debug_dump_arkit: bool = False  # dump each /tts/arkit response as JSON to ./tmp/
+
+
+class Audio2FaceConfig(BaseModel):
+    host: str = "localhost"
+    port: int = 52000
+    timeout: float = 30.0  # seconds — covers full bidirectional streaming call
+
+
+class OccConfig(BaseModel):
+    enabled: bool = False
+    mode: str = "ollama"                    # "ollama" | "lora"
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "mistral"
+    lora_model_path: str = ""               # path to LoRA adapter dir (mode="lora" only)
 
 
 class AppConfig(BaseModel):
@@ -64,6 +82,8 @@ class AppConfig(BaseModel):
     transcribe: TranscribeConfig = Field(default_factory=TranscribeConfig)
     translate: TranslateConfig = Field(default_factory=TranslateConfig)
     kokoro: KokoroConfig = Field(default_factory=KokoroConfig)
+    audio2face: Audio2FaceConfig = Field(default_factory=Audio2FaceConfig)
+    occ: OccConfig = Field(default_factory=OccConfig)
 
 
 # ---------------------------------------------------------------------------

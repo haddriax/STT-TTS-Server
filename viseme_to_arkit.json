@@ -1,110 +1,302 @@
 {
-  "_comment": "Viseme ID → ARKit blendshape weights. Tune these values visually in UE.",
+  "_comment": "Viseme ID → ARKit blendshape weights. Enhanced 22-viseme set. Sources: Apple ARKit 52 blendshapes (developer.apple.com/documentation/arkit/arfaceanchor/blendshapelocation), FACS muscle mapping (melindaozel.com/arkit-to-facs-cheat-sheet), Preston Blair phoneme shapes. Tune weights visually in UE against a mirror.",
+
+  "_arkit_mouth_reference": {
+    "jaw":        ["jawOpen", "jawForward", "jawLeft", "jawRight"],
+    "lips_close": ["mouthClose", "mouthFunnel", "mouthPucker"],
+    "lips_move":  ["mouthLeft", "mouthRight"],
+    "smile_frown":["mouthSmileLeft", "mouthSmileRight", "mouthFrownLeft", "mouthFrownRight"],
+    "corners":    ["mouthDimpleLeft", "mouthDimpleRight", "mouthStretchLeft", "mouthStretchRight"],
+    "press":      ["mouthPressLeft", "mouthPressRight"],
+    "roll":       ["mouthRollLower", "mouthRollUpper"],
+    "shrug":      ["mouthShrugLower", "mouthShrugUpper"],
+    "lip_vert":   ["mouthLowerDownLeft", "mouthLowerDownRight", "mouthUpperUpLeft", "mouthUpperUpRight"],
+    "cheek_nose": ["cheekPuff", "noseSneerLeft", "noseSneerRight"],
+    "tongue":     ["tongueOut"]
+  },
+
+  "_annotations": {
+    "V_SIL": "silence / pause",
+    "V_BP":  "p, b, m — bilabial stop/nasal. Full lip seal, cheek pressure builds.",
+    "V_FV":  "f, v — labiodental. Lower lip raised against upper teeth, upper lip slightly raised.",
+    "V_TH":  "θ, ð — dental. Tongue tip slightly between teeth; lips slightly parted and spread.",
+    "V_SZ":  "s, z — alveolar sibilant. Narrow jaw, teeth close, slight upper-lip raise.",
+    "V_SH":  "ʃ, ʒ, tʃ, dʒ — post-alveolar. Rounded funnel, slight jaw drop.",
+    "V_NL":  "n, ŋ, l — alveolar nasal/lateral. Lips slightly parted, neutral, mild nasal activation.",
+    "V_R":   "ɹ, r — rhotic. Slight funnel/pucker, jaw partially open, jaw slightly forward.",
+    "V_W":   "w — labio-velar approximant. Strong pucker, rounded, jaw nearly closed.",
+    "V_H":   "h — glottal fricative. Open jaw, relaxed lips, slight lower-lip drop.",
+    "V_TD":  "t, d — alveolar stop. Minimal jaw, slight stretch at lip corners.",
+    "V_KG":  "k, g — velar stop. Lips slightly parted, jaw open, no lip action.",
+    "V_Y":   "j — palatal approximant. Wide smile-like shape, jaw moderately open.",
+    "V_AA":  "ɑ, a, æ — open front/back vowel. Wide jaw, stretched corners.",
+    "V_EY":  "eɪ — mid-close front diphthong. Smiling, moderate jaw, upper lip slightly raised.",
+    "V_AY":  "aɪ — open→close front diphthong. Starts open, ends spread.",
+    "V_AW":  "aʊ — open→round diphthong. Starts open, ends funneled.",
+    "V_EH":  "ɛ, e — mid-open front vowel. Smiling, relaxed jaw.",
+    "V_IH":  "ɪ, iː, i — close front vowel. Widest smile, minimal jaw.",
+    "V_OW":  "oʊ — mid-close back round diphthong. Funnel, moderate jaw.",
+    "V_OY":  "ɔɪ — open-mid→close back diphthong.",
+    "V_AO":  "ɔ — open-mid back rounded vowel. Open jaw, moderate funnel.",
+    "V_UW":  "uː, ʊ, u — close back round vowel. Strong pucker, near-closed jaw.",
+    "V_ER":  "ɜː, ɚ — rhotic central vowel. Mid-open jaw, subtle funnel, slight jaw forward.",
+    "V_AH":  "ʌ, ə, ɐ — mid-central vowel (schwa/strut). Relaxed, slightly open jaw."
+  },
 
   "V_SIL": {},
 
   "V_BP": {
-    "mouthClose": 0.9,
-    "mouthPressLeft": 0.4,
-    "mouthPressRight": 0.4
+    "mouthClose":       0.95,
+    "mouthPressLeft":   0.6,
+    "mouthPressRight":  0.6,
+    "mouthRollLower":   0.25,
+    "mouthRollUpper":   0.25,
+    "mouthShrugLower":  0.15,
+    "mouthShrugUpper":  0.15,
+    "cheekPuff":        0.2,
+    "jawOpen":          0.0
   },
+
   "V_FV": {
-    "mouthLowerDownLeft": 0.5,
-    "mouthLowerDownRight": 0.5,
-    "mouthUpperUpLeft": 0.3,
-    "mouthUpperUpRight": 0.3
+    "mouthUpperUpLeft":    0.35,
+    "mouthUpperUpRight":   0.35,
+    "mouthShrugLower":     0.4,
+    "mouthRollLower":      0.3,
+    "jawOpen":             0.05,
+    "mouthStretchLeft":    0.1,
+    "mouthStretchRight":   0.1
   },
+
   "V_TH": {
-    "jawOpen": 0.1,
-    "mouthStretchLeft": 0.2,
-    "mouthStretchRight": 0.2
+    "jawOpen":          0.15,
+    "mouthStretchLeft": 0.25,
+    "mouthStretchRight":0.25,
+    "mouthShrugLower":  0.1,
+    "mouthShrugUpper":  0.1,
+    "tongueOut":        0.3,
+    "mouthFrownLeft":   0.05,
+    "mouthFrownRight":  0.05
   },
+
   "V_SZ": {
-    "jawOpen": 0.15,
-    "mouthClose": 0.2
+    "jawOpen":              0.12,
+    "mouthClose":           0.25,
+    "mouthUpperUpLeft":     0.15,
+    "mouthUpperUpRight":    0.15,
+    "mouthShrugLower":      0.1,
+    "mouthStretchLeft":     0.1,
+    "mouthStretchRight":    0.1,
+    "mouthDimpleLeft":      0.1,
+    "mouthDimpleRight":     0.1
   },
+
   "V_SH": {
-    "mouthFunnel": 0.3,
-    "jawOpen": 0.15
+    "mouthFunnel":          0.45,
+    "jawOpen":              0.2,
+    "mouthShrugLower":      0.1,
+    "mouthShrugUpper":      0.05,
+    "mouthLowerDownLeft":   0.1,
+    "mouthLowerDownRight":  0.1,
+    "mouthDimpleLeft":      0.05,
+    "mouthDimpleRight":     0.05
   },
+
   "V_NL": {
-    "jawOpen": 0.2
+    "jawOpen":          0.18,
+    "mouthShrugLower":  0.12,
+    "noseSneerLeft":    0.08,
+    "noseSneerRight":   0.08,
+    "mouthStretchLeft": 0.05,
+    "mouthStretchRight":0.05
   },
+
   "V_R": {
-    "mouthFunnel": 0.2,
-    "jawOpen": 0.2
+    "mouthFunnel":      0.25,
+    "jawOpen":          0.2,
+    "jawForward":       0.1,
+    "mouthShrugLower":  0.1,
+    "mouthShrugUpper":  0.1,
+    "mouthRollLower":   0.15,
+    "mouthStretchLeft": 0.05,
+    "mouthStretchRight":0.05
   },
+
   "V_W": {
-    "mouthPucker": 0.6,
-    "jawOpen": 0.1
+    "mouthPucker":      0.75,
+    "jawOpen":          0.08,
+    "mouthFunnel":      0.2,
+    "mouthShrugLower":  0.05,
+    "mouthShrugUpper":  0.05,
+    "mouthRollLower":   0.1,
+    "mouthRollUpper":   0.1
   },
+
   "V_H": {
-    "jawOpen": 0.3
+    "jawOpen":              0.35,
+    "mouthLowerDownLeft":   0.1,
+    "mouthLowerDownRight":  0.1,
+    "mouthShrugLower":      0.05,
+    "mouthStretchLeft":     0.05,
+    "mouthStretchRight":    0.05
   },
+
   "V_TD": {
-    "jawOpen": 0.15,
-    "mouthStretchLeft": 0.1,
-    "mouthStretchRight": 0.1
+    "jawOpen":              0.12,
+    "mouthStretchLeft":     0.12,
+    "mouthStretchRight":    0.12,
+    "mouthShrugLower":      0.08,
+    "mouthUpperUpLeft":     0.08,
+    "mouthUpperUpRight":    0.08,
+    "mouthDimpleLeft":      0.05,
+    "mouthDimpleRight":     0.05
   },
+
   "V_KG": {
-    "jawOpen": 0.2
+    "jawOpen":              0.22,
+    "mouthShrugLower":      0.1,
+    "mouthLowerDownLeft":   0.08,
+    "mouthLowerDownRight":  0.08,
+    "mouthStretchLeft":     0.05,
+    "mouthStretchRight":    0.05
   },
+
   "V_Y": {
-    "jawOpen": 0.2,
-    "mouthSmileLeft": 0.3,
-    "mouthSmileRight": 0.3
+    "jawOpen":          0.2,
+    "mouthSmileLeft":   0.4,
+    "mouthSmileRight":  0.4,
+    "mouthStretchLeft": 0.15,
+    "mouthStretchRight":0.15,
+    "mouthShrugLower":  0.05,
+    "mouthUpperUpLeft": 0.1,
+    "mouthUpperUpRight":0.1
   },
 
   "V_AA": {
-    "jawOpen": 0.7,
-    "mouthStretchLeft": 0.3,
-    "mouthStretchRight": 0.3
+    "jawOpen":              0.75,
+    "mouthStretchLeft":     0.35,
+    "mouthStretchRight":    0.35,
+    "mouthLowerDownLeft":   0.3,
+    "mouthLowerDownRight":  0.3,
+    "mouthUpperUpLeft":     0.15,
+    "mouthUpperUpRight":    0.15,
+    "mouthShrugLower":      0.05
   },
+
   "V_EY": {
-    "jawOpen": 0.45,
-    "mouthSmileLeft": 0.2,
-    "mouthSmileRight": 0.2
+    "jawOpen":          0.42,
+    "mouthSmileLeft":   0.35,
+    "mouthSmileRight":  0.35,
+    "mouthUpperUpLeft": 0.2,
+    "mouthUpperUpRight":0.2,
+    "mouthStretchLeft": 0.15,
+    "mouthStretchRight":0.15,
+    "mouthShrugLower":  0.05
   },
+
   "V_AY": {
-    "jawOpen": 0.45,
-    "mouthSmileLeft": 0.2,
-    "mouthSmileRight": 0.2
+    "jawOpen":          0.48,
+    "mouthSmileLeft":   0.25,
+    "mouthSmileRight":  0.25,
+    "mouthStretchLeft": 0.2,
+    "mouthStretchRight":0.2,
+    "mouthLowerDownLeft":  0.15,
+    "mouthLowerDownRight": 0.15,
+    "mouthUpperUpLeft": 0.1,
+    "mouthUpperUpRight":0.1
   },
+
   "V_AW": {
-    "jawOpen": 0.45,
-    "mouthFunnel": 0.15
+    "jawOpen":          0.5,
+    "mouthFunnel":      0.25,
+    "mouthShrugLower":  0.1,
+    "mouthLowerDownLeft":  0.2,
+    "mouthLowerDownRight": 0.2,
+    "mouthStretchLeft": 0.1,
+    "mouthStretchRight":0.1
   },
+
   "V_EH": {
-    "jawOpen": 0.4,
-    "mouthSmileLeft": 0.25,
-    "mouthSmileRight": 0.25
+    "jawOpen":          0.38,
+    "mouthSmileLeft":   0.3,
+    "mouthSmileRight":  0.3,
+    "mouthStretchLeft": 0.15,
+    "mouthStretchRight":0.15,
+    "mouthUpperUpLeft": 0.1,
+    "mouthUpperUpRight":0.1,
+    "mouthLowerDownLeft":  0.1,
+    "mouthLowerDownRight": 0.1
   },
+
   "V_IH": {
-    "jawOpen": 0.25,
-    "mouthSmileLeft": 0.5,
-    "mouthSmileRight": 0.5
+    "jawOpen":          0.2,
+    "mouthSmileLeft":   0.6,
+    "mouthSmileRight":  0.6,
+    "mouthStretchLeft": 0.3,
+    "mouthStretchRight":0.3,
+    "mouthUpperUpLeft": 0.15,
+    "mouthUpperUpRight":0.15,
+    "mouthShrugUpper":  0.1,
+    "mouthDimpleLeft":  0.1,
+    "mouthDimpleRight": 0.1
   },
+
   "V_OW": {
-    "jawOpen": 0.4,
-    "mouthFunnel": 0.3
+    "jawOpen":          0.38,
+    "mouthFunnel":      0.4,
+    "mouthPucker":      0.15,
+    "mouthShrugLower":  0.1,
+    "mouthShrugUpper":  0.05,
+    "mouthRollLower":   0.1,
+    "mouthRollUpper":   0.05
   },
+
   "V_OY": {
-    "jawOpen": 0.4,
-    "mouthFunnel": 0.3
+    "jawOpen":          0.38,
+    "mouthFunnel":      0.35,
+    "mouthPucker":      0.1,
+    "mouthSmileLeft":   0.1,
+    "mouthSmileRight":  0.1,
+    "mouthShrugLower":  0.08,
+    "mouthLowerDownLeft":  0.1,
+    "mouthLowerDownRight": 0.1
   },
+
   "V_AO": {
-    "jawOpen": 0.5,
-    "mouthFunnel": 0.25
+    "jawOpen":          0.55,
+    "mouthFunnel":      0.3,
+    "mouthShrugLower":  0.1,
+    "mouthLowerDownLeft":  0.2,
+    "mouthLowerDownRight": 0.2,
+    "mouthUpperUpLeft": 0.05,
+    "mouthUpperUpRight":0.05
   },
+
   "V_UW": {
-    "mouthPucker": 0.7,
-    "jawOpen": 0.15
+    "mouthPucker":      0.8,
+    "jawOpen":          0.12,
+    "mouthFunnel":      0.2,
+    "mouthRollLower":   0.15,
+    "mouthRollUpper":   0.1,
+    "mouthShrugLower":  0.05,
+    "mouthShrugUpper":  0.05
   },
+
   "V_ER": {
-    "jawOpen": 0.3,
-    "mouthFunnel": 0.15
+    "jawOpen":      0.3,
+    "mouthFunnel":  0.2,
+    "jawForward":   0.08,
+    "mouthRollLower":   0.1,
+    "mouthShrugLower":  0.05,
+    "mouthStretchLeft": 0.05,
+    "mouthStretchRight":0.05
   },
+
   "V_AH": {
-    "jawOpen": 0.35
+    "jawOpen":          0.32,
+    "mouthShrugLower":  0.08,
+    "mouthLowerDownLeft":  0.1,
+    "mouthLowerDownRight": 0.1,
+    "mouthStretchLeft": 0.05,
+    "mouthStretchRight":0.05
   }
 }
