@@ -427,7 +427,7 @@ class KokoroTTS:
     def __init__(self, cfg: KokoroConfig) -> None:
         from kokoro import KPipeline
         logger.info("Loading Kokoro pipeline (lang_code=%s)...", cfg.lang_code)
-        self.pipeline = KPipeline(lang_code=cfg.lang_code)
+        self.pipeline = KPipeline(lang_code=cfg.lang_code, device='cpu')
         self.cfg = cfg
         if cfg.use_viseme_pipeline:
             _load_viseme_pipeline(cfg.ipa_to_viseme_path, cfg.viseme_to_arkit_path)
@@ -490,11 +490,13 @@ class KokoroTTS:
         """Shared synthesis + timestamp logic used by all lipsync_* methods."""
         voice = req.voice or self.cfg.default_voice
         speed = req.speed or self.cfg.default_speed
+        logger.info("TTS synthesize — %d chars  voice=%s  speed=%.2f", len(req.text), voice, speed)
 
         synth = await asyncio.to_thread(self._synthesize, req.text, voice, speed)
         synth.audio = _trim_trailing_silence(synth.audio, _SAMPLE_RATE)
         duration = len(synth.audio) / _SAMPLE_RATE
         audio_b64 = _encode_wav_base64(synth.audio, self.cfg.output_sample_rate)
+        logger.info("TTS synthesize — %.2fs audio", duration)
 
         if synth.token_timestamps:
             word_timestamps = _rescale_model_timestamps(synth.token_timestamps, duration)

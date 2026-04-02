@@ -13,6 +13,18 @@ from config import ModelConfig, TranscribeConfig, TranslateConfig
 
 logger = logging.getLogger(__name__)
 
+# Kokoro single-letter lang codes → BCP-47, in case a client sends the wrong code
+_KOKORO_TO_BCP47: dict[str, str] = {"a": "en", "b": "en", "f": "fr"}
+
+
+def _normalize_language(lang: Optional[str]) -> Optional[str]:
+    if lang is None:
+        return None
+    normalized = _KOKORO_TO_BCP47.get(lang.lower(), lang)
+    if normalized != lang:
+        logger.warning("Language code %r is a Kokoro code — using %r for Whisper", lang, normalized)
+    return normalized
+
 SUPPORTED_FORMATS = {"json", "verbose_json", "text", "srt", "vtt"}
 
 
@@ -146,10 +158,17 @@ class WhisperSTT:
             "initial_prompt": prompt,
         }
         if task == "transcribe":
-            kwargs["language"] = language if language is not None else getattr(task_cfg, "language", None)
+            kwargs["language"] = _normalize_language(language if language is not None else getattr(task_cfg, "language", None))
 
         segments_gen, info = self.model.transcribe(io.BytesIO(audio_bytes), **kwargs)
-        return list(segments_gen), info
+        segments = list(segments_gen)
+        word_count = sum(len(seg.text.split()) for seg in segments)
+        logger.info(
+            "Whisper %s — lang=%s (%.0f%%) %.2fs audio %d segs %d words",
+            task, info.language, info.language_probability * 100,
+            info.duration, len(segments), word_count,
+        )
+        return segments, info
 
     async def transcribe(
         self,

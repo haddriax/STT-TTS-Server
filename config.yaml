@@ -4,23 +4,26 @@
 #   WHISPER_MODEL, WHISPER_DEVICE, WHISPER_COMPUTE
 #   WHISPER_CONFIG=/path/to/alternate/config.yaml
 
+language: fr           # BCP-47 language code: fr | en | en-gb
+                       # Drives transcribe.language, kokoro.lang_code, kokoro.default_voice
+                       # Uncomment the per-component keys below to override individually
+
 server:
   host: "127.0.0.1"      # bind address — use "0.0.0.0" to expose on all interfaces
   port: 8000             # TCP port
   log_level: "info"      # debug | info | warning | error | critical
 
 model:
-  name: "turbo"          # tiny | base | small | medium | large-v3 | turbo
-                         # larger = more accurate, slower to load and run
-  device: "cuda"          # cpu | cuda | auto
-  compute_type: "float16"   # int8 (fastest, CPU-friendly) | int8_float16 | float16 | default
-                         # float16 requires CUDA; int8 is best for CPU-only
+  name: "turbo"           # tiny | base | small | medium | large-v3 | turbo
+  device: "cuda"           # cpu | cuda | auto
+  compute_type: "float16" # int8 (fastest, CPU-friendly) | int8_float16 | float16 | default
+                          # float16 requires CUDA; int8 is best for CPU-only
 
 transcribe:
   beam_size: 5           # 1–10; higher = more accurate, slower
   temperature: 0.0       # 0.0 = greedy decoding; increase (e.g. 0.2) if output is repetitive
   vad_filter: true       # strip silent segments before transcription (recommended)
-  language: null         # null = auto-detect; or set a BCP-47 code e.g. "en", "fr", "ja"
+  # language: fr         # override: BCP-47 code; derived from top-level language: when omitted
   condition_on_previous_text: true  # use prior context to improve coherence
 
 translate:
@@ -34,17 +37,15 @@ translate:
 # Kokoro TTS — runs in-process as a Python library
 # ---------------------------------------------------------------------------
 kokoro:
-  lang_code: "f"                # language code passed to KPipeline
-                                # "a" = American English | "b" = British English | "f" = French
-  default_voice: "ff_siwis "  # voice used when the request omits "voice"
-                                # other options: af_bella, af_sky, af_sarah, bf_emma, bm_george, ...
-                                # fm_gabriel, ff_siwis
+  # lang_code: "f"              # override: a=American English  b=British English  f=French
+                                # derived from top-level language: when omitted
+  # default_voice: "ff_siwis"   # override: must match lang_code prefix; derived when omitted
   default_speed: 1.0            # 0.5–2.0; speech rate multiplier
   activate_base_arkit: true     # enable POST /tts/arkit  → ARKit blendshapes via viseme pipeline
   activate_words: false         # enable POST /tts/words  → word-level timestamps + audio
   activate_audio2face: false    # enable POST /tts/audio2face → ARKit via Nvidia Audio2Face-3D gRPC
   arkit_level: 3                # 1 = basic (~10 shapes)  2 = advanced/default (27)  3 = full suit (adds brow/squint)
-  debug_dump_arkit: true        # dump each /tts/arkit response as JSON to ./tmp/ (omits audio)
+  debug_dump_arkit: false       # dump each /tts/arkit response as JSON to ./tmp/ (omits audio)
   fps: 60                       # frames per second for arkit mode (24, 30, or 60 typical)
                                 # ignored in audio2face mode — A2F always outputs at 30 FPS
   output_sample_rate: 48000     # WAV output sample rate in Hz (Kokoro native is 24000)
@@ -71,3 +72,6 @@ occ:
   ollama_url: http://localhost:11434
   ollama_model: mistral
   lora_model_path: ./mistral-occ-lora   # path to LoRA adapter dir (mode=lora only)
+  max_vram_gb: null                      # cap VRAM usage for the LoRA model (mode=lora only)
+                                        # layers that don't fit spill to CPU RAM automatically
+                                        # set to null (or omit) to fill VRAM first with no cap

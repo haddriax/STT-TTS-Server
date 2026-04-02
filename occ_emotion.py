@@ -48,6 +48,7 @@ class OccEmotionClient:
         self.cfg = cfg
         self._model = None
         self._tokenizer = None
+        self._lock = asyncio.Lock()
 
         if cfg.mode == "lora":
             self._load_lora()
@@ -72,17 +73,26 @@ class OccEmotionClient:
         cuda_available = torch.cuda.is_available()
         if cuda_available:
             from transformers import BitsAndBytesConfig
+            if self.cfg.max_vram_gb is not None:
+                max_memory = {0: f"{self.cfg.max_vram_gb:.1f}GiB", "cpu": "48GiB"}
+                device_map = "auto"
+                logger.info("  OCC LoRA: VRAM cap %.1f GB — excess layers spill to RAM", self.cfg.max_vram_gb)
+            else:
+                max_memory = None
+                device_map = 0  # everything on GPU 0 — avoids meta-tensor dispatch hooks
+                logger.info("  OCC LoRA: loading fully on GPU 0 (4-bit NF4)")
             bnb_config = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_compute_dtype=torch.float16,
                 bnb_4bit_use_double_quant=True,
                 bnb_4bit_quant_type="nf4",
+                llm_int8_enable_fp32_cpu_offload=self.cfg.max_vram_gb is not None,
             )
-            logger.info("  OCC LoRA: loading with 4-bit quantization on CUDA")
             base = AutoModelForCausalLM.from_pretrained(
                 base_name,
                 quantization_config=bnb_config,
-                device_map={"": 0},
+                device_map=device_map,
+                max_memory=max_memory,
                 trust_remote_code=True,
             )
         else:
@@ -98,6 +108,7 @@ class OccEmotionClient:
 
         self._model = PeftModel.from_pretrained(base, path)
         self._model.eval()
+        torch.cuda.empty_cache()
         logger.info("OCC LoRA model ready.")
 
     def _classify_lora(self, text: str) -> tuple[str, str]:
@@ -135,14 +146,16 @@ class OccEmotionClient:
         return _extract_occ_label(raw), raw
 
     async def _run(self, text: str) -> tuple[str, str]:
-        if self.cfg.mode == "lora":
-            return await asyncio.to_thread(self._classify_lora, text)
-        return await self._classify_ollama(text)
+        async with self._lock:
+            if self.cfg.mode == "lora":
+                return await asyncio.to_thread(self._classify_lora, text)
+            return await self._classify_ollama(text)
 
     async def classify(self, text: str) -> Optional[str]:
         """Classify text, returning only the OCC label. Returns None on failure."""
         try:
             label, _ = await self._run(text)
+            logger.info("OCC emotion — %s", label)
             return label
         except Exception as exc:
             logger.warning("OCC classification failed: %s", exc)

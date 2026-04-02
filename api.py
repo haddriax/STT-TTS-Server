@@ -3,6 +3,7 @@ from __future__ import annotations
 import gc
 import logging
 import os
+import time
 
 import torch
 from contextlib import asynccontextmanager
@@ -56,10 +57,9 @@ async def lifespan(app: FastAPI):
     logger.info("  Listen      : http://%s:%d", sc.host, sc.port)
     logger.info("  Model       : %s  [%s / %s]", mc.name, mc.device, mc.compute_type)
     logger.info("  Kokoro      : voice=%s  routes=%s", kc.default_voice, ", ".join(active_routes) or "(none)")
+    logger.info("  Language    : %s → stt=%s  tts=%s  voice=%s",
+                cfg.language, cfg.transcribe.language, kc.lang_code, kc.default_voice)
     logger.info("=" * 60)
-
-    torch.set_num_threads(1)
-    torch.set_num_interop_threads(1)
 
     app.state.stt = WhisperSTT(cfg.model)
     app.state.tts = KokoroTTS(cfg.kokoro)
@@ -83,7 +83,7 @@ async def lifespan(app: FastAPI):
         "Endpoints: POST /stt/transcribe  POST /stt/translate%s  GET /health",
         "".join(f"  POST {r}" for r in active_routes),
     )
-    print(f"\n  API docs -> http://{sc.host}:{sc.port}/docs\n")
+    logger.info("  API docs -> http://%s:%d/docs", sc.host, sc.port)
 
     gc.collect()
     torch.cuda.empty_cache()
@@ -168,11 +168,14 @@ async def transcriptions(
             detail={"error": {"message": f"Unsupported response_format '{response_format}'. Must be one of: {sorted(SUPPORTED_FORMATS)}", "type": "invalid_request_error"}},
         )
     audio_bytes = await file.read()
+    logger.info("STT transcribe — %d bytes", len(audio_bytes))
+    t0 = time.perf_counter()
     try:
         segments_list, info = await app.state.stt.transcribe(
             audio_bytes, app.state.cfg.transcribe, language, prompt, temperature
         )
     except Exception as exc:
+        logger.exception("STT transcription error")
         raise HTTPException(
             status_code=422,
             detail={"error": {"message": f"Audio processing failed: {exc}", "type": "invalid_request_error"}},
@@ -181,6 +184,7 @@ async def transcriptions(
     if app.state.occ and response_format in ("json", "verbose_json"):
         full_text = "".join(seg.text for seg in segments_list)
         emotion = await app.state.occ.classify(full_text)
+    logger.info("STT transcribe — done in %dms", int((time.perf_counter() - t0) * 1000))
     return build_response(response_format, "transcribe", segments_list, info, emotion=emotion)
 
 
@@ -197,11 +201,14 @@ async def translations(
             detail={"error": {"message": f"Unsupported response_format '{response_format}'. Must be one of: {sorted(SUPPORTED_FORMATS)}", "type": "invalid_request_error"}},
         )
     audio_bytes = await file.read()
+    logger.info("STT translate — %d bytes", len(audio_bytes))
+    t0 = time.perf_counter()
     try:
         segments_list, info = await app.state.stt.translate(
             audio_bytes, app.state.cfg.translate, prompt, temperature
         )
     except Exception as exc:
+        logger.exception("STT translation error")
         raise HTTPException(
             status_code=422,
             detail={"error": {"message": f"Audio processing failed: {exc}", "type": "invalid_request_error"}},
@@ -210,36 +217,50 @@ async def translations(
     if app.state.occ and response_format in ("json", "verbose_json"):
         full_text = "".join(seg.text for seg in segments_list)
         emotion = await app.state.occ.classify(full_text)
+    logger.info("STT translate — done in %dms", int((time.perf_counter() - t0) * 1000))
     return build_response(response_format, "translate", segments_list, info, emotion=emotion)
 
 
 if cfg.kokoro.activate_base_arkit:
     @app.post("/tts/arkit", response_model=TtsResponse)
     async def tts_arkit(req: LipSyncRequest, request: Request) -> JSONResponse:
+        logger.info("TTS arkit — %d chars", len(req.text))
+        t0 = time.perf_counter()
         result = await request.app.state.tts.lipsync_arkit(req)
+        logger.info("TTS arkit — done in %dms", int((time.perf_counter() - t0) * 1000))
         return JSONResponse(result.model_dump(exclude_none=True))
 
 if cfg.kokoro.activate_words:
     @app.post("/tts/words", response_model=TtsResponse, deprecated=True)
     async def tts_words(req: LipSyncRequest, request: Request) -> JSONResponse:
+        logger.info("TTS words — %d chars", len(req.text))
+        t0 = time.perf_counter()
         result = await request.app.state.tts.lipsync_words(req)
+        logger.info("TTS words — done in %dms", int((time.perf_counter() - t0) * 1000))
         return JSONResponse(result.model_dump(exclude_none=True))
 
 if cfg.kokoro.activate_audio2face:
     @app.post("/tts/audio2face", response_model=TtsResponse)
     async def tts_audio2face(req: LipSyncRequest, request: Request) -> JSONResponse:
+        logger.info("TTS audio2face — %d chars", len(req.text))
+        t0 = time.perf_counter()
         try:
             result = await request.app.state.tts.lipsync_audio2face(
                 req, request.app.state.a2f
             )
         except Audio2FaceError as exc:
+            logger.exception("Audio2Face error")
             raise HTTPException(status_code=502, detail=str(exc))
+        logger.info("TTS audio2face — done in %dms", int((time.perf_counter() - t0) * 1000))
         return JSONResponse(result.model_dump(exclude_none=True))
 
 if cfg.occ.enabled:
     @app.post("/emotion/classify", response_model=OccClassifyResponse)
     async def emotion_classify(req: OccClassifyRequest, request: Request) -> JSONResponse:
+        logger.info("OCC classify — %d chars", len(req.text))
+        t0 = time.perf_counter()
         result = await request.app.state.occ.classify_full(req.text)
+        logger.info("OCC classify — %s in %dms", result.emotion, int((time.perf_counter() - t0) * 1000))
         return JSONResponse(result.model_dump())
 
 

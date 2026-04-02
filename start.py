@@ -2,14 +2,23 @@
 """
 whispeer-server entry point.
 """
+# ---------------------------------------------------------------------------
+# Warning filters — must be set before any import that triggers them.
+# pkg_resources fires on ctranslate2 import (happens inside `from api import app`).
+# Torch warnings fire at Kokoro model load (lifespan), but early placement is fine.
+# ---------------------------------------------------------------------------
+import warnings
+warnings.filterwarnings("ignore", message="pkg_resources is deprecated", category=UserWarning)
+warnings.filterwarnings("ignore", message="dropout option adds dropout", category=UserWarning)
+warnings.filterwarnings("ignore", message=".*weight_norm.*", category=FutureWarning)
+
+import logging
 import os
-import sys
 import site
-from pathlib import Path
+import sys
 
 # --- FIX FOR WINDOWS CUDA DLL LOADING ---
 if sys.platform == "win32":
-    # 1. Expand Python's DLL directory search
     venv_paths = site.getsitepackages() + [site.getusersitepackages()]
 
     for pkg in venv_paths:
@@ -26,10 +35,20 @@ if sys.platform == "win32":
 # ----------------------------------------
 
 import uvicorn
-from api import app
-from config import DEFAULT_CONFIG_PATH, load_config
+from api import app, cfg  # cfg reused from api — no second load_config() call
 
-cfg = load_config(Path(os.getenv("WHISPER_CONFIG", DEFAULT_CONFIG_PATH)))
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# HuggingFace token — set HF_TOKEN in your environment or .env file.
+# Enables higher rate limits and faster downloads from the HF Hub.
+# ---------------------------------------------------------------------------
+if hf_token := os.getenv("HF_TOKEN"):
+    from huggingface_hub import login
+    login(token=hf_token, add_to_git_credential=False)
+    logger.info("HuggingFace: authenticated via HF_TOKEN")
+else:
+    logger.debug("HuggingFace: no HF_TOKEN set — using anonymous access")
 
 if __name__ == "__main__":
     try:
