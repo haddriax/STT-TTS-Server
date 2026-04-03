@@ -11,6 +11,7 @@ IPA_VISEME_PATH_MAP: dict[str, str] = {
 
 
 class KokoroConfig(BaseModel):
+    device: str = "auto"
     lang_code: str = "a"
     default_voice: str = "am_adam"
     default_speed: float = 1.0

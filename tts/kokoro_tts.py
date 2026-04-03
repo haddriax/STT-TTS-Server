@@ -450,7 +450,7 @@ class KokoroTTS:
     def __init__(self, cfg: KokoroConfig) -> None:
         from kokoro import KPipeline
         logger.info("Loading Kokoro pipeline (lang_code=%s)...", cfg.lang_code)
-        self.pipeline = KPipeline(lang_code=cfg.lang_code, device='cpu')
+        self.pipeline = KPipeline(lang_code=cfg.lang_code, device=cfg.device)
         self.cfg = cfg
         if cfg.use_viseme_pipeline:
             _load_viseme_pipeline(cfg.ipa_to_viseme_path, cfg.viseme_to_arkit_path)
