@@ -35,7 +35,7 @@ translate:
 # Kokoro TTS — runs in-process as a Python library
 # ---------------------------------------------------------------------------
 kokoro:
-  device: "cuda"                # cpu | cuda | auto
+  device: "cpu"                # cpu | cuda | auto
   lang_code: f                  # override: a=American English  b=British English  f=French
                                 # derived from top-level language: when omitted
   # default_voice: "ff_siwis"   # override: must match lang_code prefix; derived when omitted
