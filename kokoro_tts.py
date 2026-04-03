@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+import re as _re
+
 import numpy as np
 from pydantic import BaseModel
 from scipy.signal import resample_poly
@@ -18,6 +20,27 @@ from scipy.signal import resample_poly
 from config import KokoroConfig
 
 logger = logging.getLogger(__name__)
+
+
+def clean_llm_text(text: str) -> str:
+    """Strip common LLM/markdown artefacts from text before TTS synthesis."""
+    # Markdown links: keep label, drop URL
+    text = _re.sub(r'\[([^\]]+)\]\([^)]*\)', r'\1', text)
+    # Code spans: keep content, drop backticks
+    text = _re.sub(r'`+([^`]*)`+', r'\1', text)
+    # Bold/italic markers: ***, **, *, ___, __, _
+    text = _re.sub(r'\*{1,3}([^*]*)\*{1,3}', r'\1', text)
+    text = _re.sub(r'_{1,3}([^_]*)_{1,3}', r'\1', text)
+    # Remaining lone asterisks / underscores (orphaned markers)
+    text = _re.sub(r'(?<!\w)[*_]+(?!\w)', '', text)
+    # Markdown headers: leading # symbols
+    text = _re.sub(r'^\s*#{1,6}\s+', '', text, flags=_re.MULTILINE)
+    # List bullets: leading -, *, •
+    text = _re.sub(r'^\s*[-*•]\s+', '', text, flags=_re.MULTILINE)
+    # Collapse excess whitespace
+    text = _re.sub(r' {2,}', ' ', text)
+    text = _re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
 
 
 # ---------------------------------------------------------------------------
@@ -490,9 +513,10 @@ class KokoroTTS:
         """Shared synthesis + timestamp logic used by all lipsync_* methods."""
         voice = req.voice or self.cfg.default_voice
         speed = req.speed or self.cfg.default_speed
-        logger.info("TTS synthesize — %d chars  voice=%s  speed=%.2f", len(req.text), voice, speed)
+        text = clean_llm_text(req.text)
+        logger.info("TTS synthesize — %d chars  voice=%s  speed=%.2f", len(text), voice, speed)
 
-        synth = await asyncio.to_thread(self._synthesize, req.text, voice, speed)
+        synth = await asyncio.to_thread(self._synthesize, text, voice, speed)
         synth.audio = _trim_trailing_silence(synth.audio, _SAMPLE_RATE)
         duration = len(synth.audio) / _SAMPLE_RATE
         audio_b64 = _encode_wav_base64(synth.audio, self.cfg.output_sample_rate)
@@ -503,7 +527,7 @@ class KokoroTTS:
             phonemes = _tokenize_ipa(" ".join(synth.phoneme_parts))
             logger.info("lipsync: using model-predicted timestamps (%d tokens)", len(word_timestamps))
         else:
-            words = req.text.split()
+            words = text.split()
             phonemes = _tokenize_ipa(" ".join(synth.phoneme_parts))
             word_timestamps = _estimate_word_timestamps(words, duration, phonemes)
             logger.info("lipsync: using estimated timestamps (no model data)")
