@@ -16,22 +16,20 @@ server:
 model:
   name: "turbo"           # tiny | base | small | medium | large-v3 | turbo
   device: "cuda"           # cpu | cuda | auto
-  compute_type: "float16" # int8 (fastest, CPU-friendly) | int8_float16 | float16 | default
-                          # float16 requires CUDA; int8 is best for CPU-only
+  compute_type: "int8_float16" # int8 (fastest, CPU-friendly) | int8_float16 (VRAM friendly) | float16 | defaults
 
 transcribe:
-  beam_size: 5           # 1–10; higher = more accurate, slower
+  beam_size: 3           # 1–10; higher = more accurate, slower
   temperature: 0.0       # 0.0 = greedy decoding; increase (e.g. 0.2) if output is repetitive
   vad_filter: true       # strip silent segments before transcription (recommended)
   # language: fr         # override: BCP-47 code; derived from top-level language: when omitted
-  condition_on_previous_text: true  # use prior context to improve coherence
+  condition_on_previous_text: false  # use prior context to improve coherence
 
 translate:
-  beam_size: 5           # same as transcribe.beam_size
+  beam_size: 3           # same as transcribe.beam_size
   temperature: 0.0       # same as transcribe.temperature
   vad_filter: true       # same as transcribe.vad_filter
   condition_on_previous_text: true  # same as transcribe.condition_on_previous_text
-  # Note: translation always outputs English regardless of source language
 
 # ---------------------------------------------------------------------------
 # Kokoro TTS — runs in-process as a Python library

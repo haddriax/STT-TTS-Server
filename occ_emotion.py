@@ -127,6 +127,8 @@ class OccEmotionClient:
             )
         generated = outputs[0][inputs["input_ids"].shape[1]:]
         raw = self._tokenizer.decode(generated, skip_special_tokens=True).strip()
+        del inputs, outputs, generated
+        torch.cuda.empty_cache()
         return _extract_occ_label(raw), raw
 
     async def _classify_ollama(self, text: str) -> tuple[str, str]:

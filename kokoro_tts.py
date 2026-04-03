@@ -147,8 +147,8 @@ def _load_viseme_pipeline(ipa_to_viseme_path: str, viseme_to_arkit_path: str) ->
     _IPA_LOOKUP = mapping
     _IPA_SORTED = sorted(_IPA_LOOKUP.keys(), key=len, reverse=True)
     logger.info(
-        "Loaded viseme pipeline: %d IPA→viseme, %d visemes→ARKit, %d total mappings",
-        len(ipa_to_viseme), len(viseme_to_arkit), len(_IPA_LOOKUP),
+        "Loaded viseme pipeline from '%s': %d IPA→viseme, %d visemes→ARKit, %d total mappings",
+        ipa_path.name, len(ipa_to_viseme), len(viseme_to_arkit), len(_IPA_LOOKUP),
     )
 
 
