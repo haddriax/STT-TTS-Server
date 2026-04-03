@@ -26,11 +26,11 @@
   "_comment_fr": "French-specific additions below",
   "\u0281": "V_AH",
   "y": "V_UW",
-  "\u00f8": "V_OW",
-  "\u0153": "V_ER",
+  "\u00f8": "V_ER",
+  "\u0153": "V_OW",
   "\u0272": "V_NL",
   "\u025b\u0303": "V_EH",
   "\u0251\u0303": "V_AA",
   "\u0254\u0303": "V_AO",
-  "\u0153\u0303": "V_ER"
+  "\u0153\u0303": "V_OW"
 }
