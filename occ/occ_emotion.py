@@ -6,7 +6,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from config import OccConfig
+from occ.config import OccConfig
 
 
 class OccClassifyRequest(BaseModel):

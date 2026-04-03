@@ -43,8 +43,6 @@ async def run_checks(app, cfg) -> None:
             checks.append(_check(client, "POST", "/tts/arkit",      "tts/arkit",      json={"text": "hello"}))
         if cfg.kokoro.activate_words:
             checks.append(_check(client, "POST", "/tts/words",      "tts/words",      json={"text": "hello"}))
-        if cfg.kokoro.activate_audio2face:
-            checks.append(_check(client, "POST", "/tts/audio2face", "tts/audio2face", json={"text": "hello"}))
 
         results = list(await asyncio.gather(*checks))
 

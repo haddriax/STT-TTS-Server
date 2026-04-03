@@ -17,7 +17,7 @@ import numpy as np
 from pydantic import BaseModel
 from scipy.signal import resample_poly
 
-from config import KokoroConfig
+from tts.config import KokoroConfig
 
 logger = logging.getLogger(__name__)
 
@@ -576,12 +576,3 @@ class KokoroTTS:
             ],
         )
 
-    async def lipsync_audio2face(
-        self,
-        req: LipSyncRequest,
-        a2f_client,  # Audio2FaceClient
-    ) -> TtsResponse:
-        p = await self._prepare(req)
-        frames = await a2f_client.generate_blendshapes(p.raw_audio, _SAMPLE_RATE)
-        logger.info("lipsync_audio2face: %d A2F frames @ 30 fps", len(frames))
-        return TtsResponse(audio=p.audio_b64, format="wav", duration=p.duration, frames=frames)

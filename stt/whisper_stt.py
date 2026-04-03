@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from faster_whisper import WhisperModel
 from pydantic import BaseModel
 
-from config import ModelConfig, TranscribeConfig, TranslateConfig
+from stt.config import ModelConfig, TranscribeConfig, TranslateConfig
 
 logger = logging.getLogger(__name__)
 
@@ -135,10 +135,29 @@ def build_response(
 
 class WhisperSTT:
     def __init__(self, cfg: ModelConfig) -> None:
+        import wave
+
+        import numpy as np
+
         logger.info("Loading Whisper model '%s' on %s (%s)...", cfg.name, cfg.device, cfg.compute_type)
         self.model = WhisperModel(cfg.name, device=cfg.device, compute_type=cfg.compute_type)
         self.cfg = cfg
-        logger.info("Model '%s' ready.", cfg.name)
+
+        actual_device = getattr(self.model.model, "device", "unknown")
+        logger.info("Whisper model '%s' ready — actual device: %s", cfg.name, actual_device)
+
+        # Warm up CUDA kernels so the first real request isn't slow.
+        logger.info("Warming up Whisper model...")
+        buf = io.BytesIO()
+        pcm = np.zeros(2400, dtype=np.int16)  # 0.1 s of silence at 24 kHz
+        with wave.open(buf, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(24000)
+            wf.writeframes(pcm.tobytes())
+        buf.seek(0)
+        list(self.model.transcribe(buf, beam_size=1))  # exhaust generator
+        logger.info("Whisper warm-up done.")
 
     def _run(
         self,

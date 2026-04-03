@@ -15,12 +15,11 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.exceptions import HTTPException as StarletteHTTPException, RequestValidationError
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-from audio2face_client import Audio2FaceClient, Audio2FaceError
 from config import DEFAULT_CONFIG_PATH, AppConfig, load_config
 from healthcheck import run_checks
-from kokoro_tts import KokoroTTS, LipSyncRequest, TtsResponse
-from occ_emotion import OccClassifyRequest, OccClassifyResponse, OccEmotionClient
-from whisper_stt import SUPPORTED_FORMATS, WhisperSTT, build_response
+from occ import OccClassifyRequest, OccClassifyResponse, OccEmotionClient
+from stt import SUPPORTED_FORMATS, WhisperSTT, build_response
+from tts import KokoroTTS, LipSyncRequest, TtsResponse
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,6 +30,17 @@ logger = logging.getLogger(__name__)
 
 config_path = Path(os.getenv("WHISPER_CONFIG", DEFAULT_CONFIG_PATH))
 cfg = load_config(config_path)
+
+
+def _log_vram(label: str) -> None:
+    """Log CUDA VRAM usage after a model load. No-op when CUDA is unavailable."""
+    if not torch.cuda.is_available():
+        return
+    used = torch.cuda.memory_allocated() / 1024 ** 3
+    reserved = torch.cuda.memory_reserved() / 1024 ** 3
+    total = torch.cuda.get_device_properties(0).total_memory / 1024 ** 3
+    logger.info("  VRAM after %-12s  used=%.1fGB  reserved=%.1fGB  total=%.1fGB",
+                label + ":", used, reserved, total)
 
 
 # ---------------------------------------------------------------------------
@@ -48,8 +58,6 @@ async def lifespan(app: FastAPI):
         active_routes.append("/tts/arkit")
     if kc.activate_words:
         active_routes.append("/tts/words")
-    if kc.activate_audio2face:
-        active_routes.append("/tts/audio2face")
 
     logger.info("=" * 60)
     logger.info("whispeer-server starting up")
@@ -62,15 +70,13 @@ async def lifespan(app: FastAPI):
     logger.info("=" * 60)
 
     app.state.stt = WhisperSTT(cfg.model)
+    _log_vram("Whisper")
     app.state.tts = KokoroTTS(cfg.kokoro)
-
-    if kc.activate_audio2face:
-        app.state.a2f = Audio2FaceClient(cfg.audio2face)
-    else:
-        app.state.a2f = None
+    _log_vram("Kokoro")
 
     if cfg.occ.enabled:
         app.state.occ = OccEmotionClient(cfg.occ)
+        _log_vram("OCC LoRA")
         logger.info("  OCC emotion: enabled (mode=%s)", cfg.occ.mode)
     else:
         app.state.occ = None
@@ -93,7 +99,6 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down — releasing models...")
     app.state.stt = None
     app.state.tts = None
-    app.state.a2f = None
     app.state.occ = None
     gc.collect()
     torch.cuda.empty_cache()
@@ -117,8 +122,6 @@ if cfg.kokoro.activate_base_arkit:
     _ROUTES.append(("POST", "/tts/arkit",      "Generate speech + ARKit blendshapes (viseme pipeline)"))
 if cfg.kokoro.activate_words:
     _ROUTES.append(("POST", "/tts/words",      "Generate speech + word-level timestamps"))
-if cfg.kokoro.activate_audio2face:
-    _ROUTES.append(("POST", "/tts/audio2face", "Generate speech + ARKit blendshapes (Audio2Face-3D)"))
 if cfg.occ.enabled:
     _ROUTES.append(("POST", "/emotion/classify", "Classify text into an OCC emotion label"))
 
@@ -180,11 +183,14 @@ async def transcriptions(
             status_code=422,
             detail={"error": {"message": f"Audio processing failed: {exc}", "type": "invalid_request_error"}},
         ) from exc
+    logger.info("STT transcribe — Whisper: %dms", int((time.perf_counter() - t0) * 1000))
     emotion = None
     if app.state.occ and response_format in ("json", "verbose_json"):
         full_text = "".join(seg.text for seg in segments_list)
+        t_occ = time.perf_counter()
         emotion = await app.state.occ.classify(full_text)
-    logger.info("STT transcribe — done in %dms", int((time.perf_counter() - t0) * 1000))
+        logger.info("STT transcribe — OCC: %dms", int((time.perf_counter() - t_occ) * 1000))
+    logger.info("STT transcribe — total: %dms", int((time.perf_counter() - t0) * 1000))
     return build_response(response_format, "transcribe", segments_list, info, emotion=emotion)
 
 
@@ -213,11 +219,14 @@ async def translations(
             status_code=422,
             detail={"error": {"message": f"Audio processing failed: {exc}", "type": "invalid_request_error"}},
         ) from exc
+    logger.info("STT translate — Whisper: %dms", int((time.perf_counter() - t0) * 1000))
     emotion = None
     if app.state.occ and response_format in ("json", "verbose_json"):
         full_text = "".join(seg.text for seg in segments_list)
+        t_occ = time.perf_counter()
         emotion = await app.state.occ.classify(full_text)
-    logger.info("STT translate — done in %dms", int((time.perf_counter() - t0) * 1000))
+        logger.info("STT translate — OCC: %dms", int((time.perf_counter() - t_occ) * 1000))
+    logger.info("STT translate — total: %dms", int((time.perf_counter() - t0) * 1000))
     return build_response(response_format, "translate", segments_list, info, emotion=emotion)
 
 
@@ -237,21 +246,6 @@ if cfg.kokoro.activate_words:
         t0 = time.perf_counter()
         result = await request.app.state.tts.lipsync_words(req)
         logger.info("TTS words — done in %dms", int((time.perf_counter() - t0) * 1000))
-        return JSONResponse(result.model_dump(exclude_none=True))
-
-if cfg.kokoro.activate_audio2face:
-    @app.post("/tts/audio2face", response_model=TtsResponse)
-    async def tts_audio2face(req: LipSyncRequest, request: Request) -> JSONResponse:
-        logger.info("TTS audio2face — %d chars", len(req.text))
-        t0 = time.perf_counter()
-        try:
-            result = await request.app.state.tts.lipsync_audio2face(
-                req, request.app.state.a2f
-            )
-        except Audio2FaceError as exc:
-            logger.exception("Audio2Face error")
-            raise HTTPException(status_code=502, detail=str(exc))
-        logger.info("TTS audio2face — done in %dms", int((time.perf_counter() - t0) * 1000))
         return JSONResponse(result.model_dump(exclude_none=True))
 
 if cfg.occ.enabled:
