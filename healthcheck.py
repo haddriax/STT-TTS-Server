@@ -15,7 +15,7 @@ logger = logging.getLogger("healthcheck")
 
 
 
-async def _check(client: httpx.AsyncClient, method: str, path: str, label: str, **kwargs) -> bool:
+async def _check(client: httpx.AsyncClient, method: str, path: str, **kwargs) -> bool:
     try:
         resp = await client.request(method, path, **kwargs)
         ok = resp.status_code < 400
@@ -36,13 +36,13 @@ async def run_checks(app, cfg) -> None:
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test", timeout=30.0) as client:
         checks = [
-            _check(client, "GET",  "/health",         "health"),
-            _check(client, "GET",  "/models",         "models"),
+            _check(client, "GET",  "/health"),
+            _check(client, "GET",  "/models"),
         ]
         if cfg.kokoro.activate_base_arkit:
-            checks.append(_check(client, "POST", "/tts/arkit",      "tts/arkit",      json={"text": "hello"}))
+            checks.append(_check(client, "POST", "/tts/arkit", json={"text": "hello"}))
         if cfg.kokoro.activate_words:
-            checks.append(_check(client, "POST", "/tts/words",      "tts/words",      json={"text": "hello"}))
+            checks.append(_check(client, "POST", "/tts/words", json={"text": "hello"}))
 
         results = list(await asyncio.gather(*checks))
 

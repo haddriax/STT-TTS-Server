@@ -14,7 +14,7 @@ from stt.config import ModelConfig, TranscribeConfig, TranslateConfig
 logger = logging.getLogger(__name__)
 
 # Kokoro single-letter lang codes → BCP-47, in case a client sends the wrong code
-_KOKORO_TO_BCP47: dict[str, str] = {"a": "en", "b": "en", "f": "fr"}
+_KOKORO_TO_BCP47: dict[str, str] = {"a": "en", "b": "en-gb", "f": "fr"}
 
 
 def _normalize_language(lang: Optional[str]) -> Optional[str]:

@@ -16,7 +16,7 @@ class KokoroConfig(BaseModel):
     default_voice: str = "am_adam"
     default_speed: float = 1.0
     activate_base_arkit: bool = True
-    activate_words: bool = True
+    activate_words: bool = False
     fps: int = 60
     output_sample_rate: int = 48000
     phoneme_mapping_path: str = "phoneme_to_arkit.json"

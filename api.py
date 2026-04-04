@@ -157,6 +157,47 @@ def list_models() -> dict:
     return {"data": [{"id": cfg.model.name, "object": "model"}]}
 
 
+async def _run_stt(
+    task: str,
+    audio_bytes: bytes,
+    response_format: str,
+    prompt: Optional[str],
+    temperature: Optional[float],
+    language: Optional[str] = None,
+) -> Union[JSONResponse, PlainTextResponse]:
+    if response_format not in SUPPORTED_FORMATS:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {"message": f"Unsupported response_format '{response_format}'. Must be one of: {sorted(SUPPORTED_FORMATS)}", "type": "invalid_request_error"}},
+        )
+    logger.info("STT %s — %d bytes", task, len(audio_bytes))
+    t0 = time.perf_counter()
+    try:
+        if task == "transcribe":
+            segments_list, info = await app.state.stt.transcribe(
+                audio_bytes, app.state.cfg.transcribe, language, prompt, temperature
+            )
+        else:
+            segments_list, info = await app.state.stt.translate(
+                audio_bytes, app.state.cfg.translate, prompt, temperature
+            )
+    except Exception as exc:
+        logger.exception("STT %s error", task)
+        raise HTTPException(
+            status_code=422,
+            detail={"error": {"message": f"Audio processing failed: {exc}", "type": "invalid_request_error"}},
+        ) from exc
+    logger.info("STT %s — Whisper: %dms", task, int((time.perf_counter() - t0) * 1000))
+    emotion = None
+    if app.state.occ and response_format in ("json", "verbose_json"):
+        full_text = "".join(seg.text for seg in segments_list)
+        t_occ = time.perf_counter()
+        emotion = await app.state.occ.classify(full_text)
+        logger.info("STT %s — OCC: %dms", task, int((time.perf_counter() - t_occ) * 1000))
+    logger.info("STT %s — total: %dms", task, int((time.perf_counter() - t0) * 1000))
+    return build_response(response_format, task, segments_list, info, emotion=emotion)
+
+
 @app.post("/stt/transcribe", response_model=None)
 async def transcriptions(
     file: UploadFile = File(...),
@@ -165,33 +206,7 @@ async def transcriptions(
     response_format: str = Form("json"),
     temperature: Optional[float] = Form(None),
 ) -> Union[JSONResponse, PlainTextResponse]:
-    if response_format not in SUPPORTED_FORMATS:
-        raise HTTPException(
-            status_code=400,
-            detail={"error": {"message": f"Unsupported response_format '{response_format}'. Must be one of: {sorted(SUPPORTED_FORMATS)}", "type": "invalid_request_error"}},
-        )
-    audio_bytes = await file.read()
-    logger.info("STT transcribe — %d bytes", len(audio_bytes))
-    t0 = time.perf_counter()
-    try:
-        segments_list, info = await app.state.stt.transcribe(
-            audio_bytes, app.state.cfg.transcribe, language, prompt, temperature
-        )
-    except Exception as exc:
-        logger.exception("STT transcription error")
-        raise HTTPException(
-            status_code=422,
-            detail={"error": {"message": f"Audio processing failed: {exc}", "type": "invalid_request_error"}},
-        ) from exc
-    logger.info("STT transcribe — Whisper: %dms", int((time.perf_counter() - t0) * 1000))
-    emotion = None
-    if app.state.occ and response_format in ("json", "verbose_json"):
-        full_text = "".join(seg.text for seg in segments_list)
-        t_occ = time.perf_counter()
-        emotion = await app.state.occ.classify(full_text)
-        logger.info("STT transcribe — OCC: %dms", int((time.perf_counter() - t_occ) * 1000))
-    logger.info("STT transcribe — total: %dms", int((time.perf_counter() - t0) * 1000))
-    return build_response(response_format, "transcribe", segments_list, info, emotion=emotion)
+    return await _run_stt("transcribe", await file.read(), response_format, prompt, temperature, language)
 
 
 @app.post("/stt/translate", response_model=None)
@@ -201,33 +216,7 @@ async def translations(
     response_format: str = Form("json"),
     temperature: Optional[float] = Form(None),
 ) -> Union[JSONResponse, PlainTextResponse]:
-    if response_format not in SUPPORTED_FORMATS:
-        raise HTTPException(
-            status_code=400,
-            detail={"error": {"message": f"Unsupported response_format '{response_format}'. Must be one of: {sorted(SUPPORTED_FORMATS)}", "type": "invalid_request_error"}},
-        )
-    audio_bytes = await file.read()
-    logger.info("STT translate — %d bytes", len(audio_bytes))
-    t0 = time.perf_counter()
-    try:
-        segments_list, info = await app.state.stt.translate(
-            audio_bytes, app.state.cfg.translate, prompt, temperature
-        )
-    except Exception as exc:
-        logger.exception("STT translation error")
-        raise HTTPException(
-            status_code=422,
-            detail={"error": {"message": f"Audio processing failed: {exc}", "type": "invalid_request_error"}},
-        ) from exc
-    logger.info("STT translate — Whisper: %dms", int((time.perf_counter() - t0) * 1000))
-    emotion = None
-    if app.state.occ and response_format in ("json", "verbose_json"):
-        full_text = "".join(seg.text for seg in segments_list)
-        t_occ = time.perf_counter()
-        emotion = await app.state.occ.classify(full_text)
-        logger.info("STT translate — OCC: %dms", int((time.perf_counter() - t_occ) * 1000))
-    logger.info("STT translate — total: %dms", int((time.perf_counter() - t0) * 1000))
-    return build_response(response_format, "translate", segments_list, info, emotion=emotion)
+    return await _run_stt("translate", await file.read(), response_format, prompt, temperature)
 
 
 if cfg.kokoro.activate_base_arkit:
