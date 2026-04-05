@@ -1,4 +1,4 @@
-# whispeer-server
+# STT-TTS-Server
 
 A local FastAPI server combining speech transcription, text-to-speech with real-time ARKit facial animation, and OCC emotion classification. All models run in-process — no external services required beyond optional Ollama for emotion classification.
 
@@ -20,7 +20,6 @@ A local FastAPI server combining speech transcription, text-to-speech with real-
 
 ```bash
 git clone <repo>
-cd whispeer-server
 uv sync
 ```
 
